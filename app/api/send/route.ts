@@ -31,8 +31,10 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: 'Tujuan dan pesan wajib diisi' }, { status: 400 })
   }
 
-  const targets = to === 'all' ? ALLOWED_TARGETS : [to]
-  if (!targets.every(t => ALLOWED_TARGETS.includes(t))) {
+  const targets = to === 'all' ? ALLOWED_TARGETS
+    : Array.isArray(to) ? to.filter((t: string) => ALLOWED_TARGETS.includes(t))
+    : [to]
+  if (targets.length === 0 || !targets.every(t => ALLOWED_TARGETS.includes(t))) {
     return NextResponse.json({ ok: false, error: 'Target tidak dikenal' }, { status: 400 })
   }
 

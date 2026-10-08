@@ -58,11 +58,19 @@ export default function RelayDashboard() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   // Form kirim perintah
-  const [target, setTarget] = useState('all')
+  const [selectedTargets, setSelectedTargets] = useState<string[]>(['musashi', 'kelya', 'rella'])
   const [msgType, setMsgType] = useState('chat')
   const [msgText, setMsgText] = useState('')
   const [sending, setSending] = useState(false)
   const [sendResult, setSendResult] = useState<string | null>(null)
+
+  const toggleTarget = (id: string) => {
+    setSelectedTargets(prev =>
+      prev.includes(id) ? prev.filter(t => t !== id) : [...prev, id]
+    )
+  }
+
+  const presetTargets = (ids: string[]) => setSelectedTargets(ids)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -86,14 +94,14 @@ export default function RelayDashboard() {
   }, [])
 
   const sendCommand = async () => {
-    if (!msgText.trim() || sending) return
+    if (!msgText.trim() || sending || selectedTargets.length === 0) return
     setSending(true)
     setSendResult(null)
     try {
       const res = await fetch('/api/send', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ to: target, type: msgType, text: msgText }),
+        body: JSON.stringify({ to: selectedTargets, type: msgType, text: msgText }),
       })
       const d = await res.json()
       if (d.ok) {
@@ -185,23 +193,46 @@ export default function RelayDashboard() {
 
       <h2 style={{ fontSize: 20, marginBottom: 16, marginTop: 32 }}>✉️ Kirim Perintah</h2>
       <div style={{ ...cardStyle, marginBottom: 16 }}>
-        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
-          <div>
-            <div style={labelStyle}>Target</div>
-            <select value={target} onChange={e => setTarget(e.target.value)} style={inputStyle}>
-              <option value="all">Semua agent</option>
-              <option value="musashi">musashi</option>
-              <option value="kelya">kelya</option>
-              <option value="rella">rella</option>
-            </select>
-          </div>
-          <div>
-            <div style={labelStyle}>Jenis</div>
-            <select value={msgType} onChange={e => setMsgType(e.target.value)} style={inputStyle}>
-              <option value="chat">Chat</option>
-              <option value="task_request">Task request</option>
-            </select>
-          </div>
+        <div style={labelStyle}>Target</div>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginBottom: 10 }}>
+          {['musashi', 'kelya', 'rella'].map(id => (
+            <label key={id} style={{
+              display: 'flex', alignItems: 'center', gap: 8, cursor: 'pointer',
+              background: selectedTargets.includes(id) ? '#0f2e25' : '#0a0e14',
+              border: `1px solid ${selectedTargets.includes(id) ? '#00d4aa' : '#1e2a3a'}`,
+              borderRadius: 20, padding: '8px 16px', fontSize: 14,
+            }}>
+              <input
+                type="checkbox"
+                checked={selectedTargets.includes(id)}
+                onChange={() => toggleTarget(id)}
+                style={{ accentColor: '#00d4aa', width: 16, height: 16 }}
+              />
+              {id}
+            </label>
+          ))}
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: 16 }}>
+          {[
+            { label: 'Ketiganya', ids: ['musashi', 'kelya', 'rella'] },
+            { label: 'rella + kelya', ids: ['rella', 'kelya'] },
+            { label: 'kelya + musashi', ids: ['kelya', 'musashi'] },
+            { label: 'musashi + rella', ids: ['musashi', 'rella'] },
+          ].map(p => (
+            <button key={p.label} onClick={() => presetTargets(p.ids)} style={{
+              background: 'transparent', border: '1px solid #1e2a3a', borderRadius: 16,
+              color: '#888', padding: '5px 12px', fontSize: 12, cursor: 'pointer',
+            }}>
+              {p.label}
+            </button>
+          ))}
+        </div>
+        <div style={{ marginBottom: 12 }}>
+          <div style={labelStyle}>Jenis</div>
+          <select value={msgType} onChange={e => setMsgType(e.target.value)} style={inputStyle}>
+            <option value="chat">Chat</option>
+            <option value="task_request">Task request</option>
+          </select>
         </div>
         <div style={labelStyle}>Pesan</div>
         <textarea
@@ -213,14 +244,14 @@ export default function RelayDashboard() {
         />
         <button
           onClick={sendCommand}
-          disabled={sending || !msgText.trim()}
+          disabled={sending || !msgText.trim() || selectedTargets.length === 0}
           style={{
             marginTop: 12, padding: '10px 24px', fontSize: 15, fontWeight: 'bold',
             background: '#00d4aa', border: 'none', borderRadius: 8, cursor: 'pointer',
-            color: '#0a0e14', opacity: sending || !msgText.trim() ? 0.5 : 1,
+            color: '#0a0e14', opacity: sending || !msgText.trim() || selectedTargets.length === 0 ? 0.5 : 1,
           }}
         >
-          {sending ? 'Mengirim...' : 'Kirim'}
+          {sending ? 'Mengirim...' : `Kirim ke ${selectedTargets.length} agent`}
         </button>
         {sendResult && (
           <p style={{ marginTop: 12, fontSize: 14, color: sendResult.startsWith('✅') ? '#00d4aa' : '#ffb020' }}>
