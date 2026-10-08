@@ -42,7 +42,7 @@ export async function POST(req: Request) {
     try {
       const res = await fetch(`${RELAY_URL}/send`, {
         method: 'POST',
-        headers: { ...HEADERS, 'X-Agent-Secret': secret },
+        headers: { ...HEADERS, 'X-Agentbus-Token': secret },
         body: JSON.stringify({
           from: AGENT_ID,
           to: target,
