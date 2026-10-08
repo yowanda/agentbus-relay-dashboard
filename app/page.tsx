@@ -32,6 +32,16 @@ const labelStyle: React.CSSProperties = {
   letterSpacing: 1,
 }
 
+const inputStyle: React.CSSProperties = {
+  background: '#0a0e14',
+  border: '1px solid #1e2a3a',
+  borderRadius: 8,
+  color: '#e6e6e6',
+  padding: '10px 12px',
+  fontSize: 15,
+  fontFamily: 'inherit',
+}
+
 function timeAgo(iso: string | null): string {
   if (!iso) return '-'
   const s = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
@@ -47,6 +57,12 @@ export default function RelayDashboard() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  // Form kirim perintah
+  const [target, setTarget] = useState('all')
+  const [msgType, setMsgType] = useState('chat')
+  const [msgText, setMsgText] = useState('')
+  const [sending, setSending] = useState(false)
+  const [sendResult, setSendResult] = useState<string | null>(null)
 
   useEffect(() => {
     const fetchData = async () => {
@@ -68,6 +84,34 @@ export default function RelayDashboard() {
     const interval = setInterval(fetchData, 15000)
     return () => clearInterval(interval)
   }, [])
+
+  const sendCommand = async () => {
+    if (!msgText.trim() || sending) return
+    setSending(true)
+    setSendResult(null)
+    try {
+      const res = await fetch('/api/send', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ to: target, type: msgType, text: msgText }),
+      })
+      const d = await res.json()
+      if (d.ok) {
+        const detail = (d.results || []).map((r: any) => `${r.to}: ${r.delivery || 'terkirim'}`).join(', ')
+        setSendResult(`✅ Terkirim — ${detail}`)
+        setMsgText('')
+      } else if (d.results) {
+        const detail = (d.results || []).map((r: any) => `${r.to}: ${r.error || 'gagal'}`).join(', ')
+        setSendResult(`⚠️ Sebagian gagal — ${detail}`)
+      } else {
+        setSendResult(`❌ ${d.error || 'Gagal mengirim'}`)
+      }
+    } catch {
+      setSendResult('❌ Koneksi ke dashboard API gagal')
+    } finally {
+      setSending(false)
+    }
+  }
 
   if (loading) {
     return <div style={{ padding: 40, textAlign: 'center' }}><h1>🔄 Memuat...</h1></div>
@@ -138,6 +182,52 @@ export default function RelayDashboard() {
       {agents.length === 0 && !error && (
         <p style={{ color: '#888', textAlign: 'center', marginTop: 40 }}>Belum ada agent terdaftar.</p>
       )}
+
+      <h2 style={{ fontSize: 20, marginBottom: 16, marginTop: 32 }}>✉️ Kirim Perintah</h2>
+      <div style={{ ...cardStyle, marginBottom: 16 }}>
+        <div style={{ display: 'flex', gap: 12, flexWrap: 'wrap', marginBottom: 12 }}>
+          <div>
+            <div style={labelStyle}>Target</div>
+            <select value={target} onChange={e => setTarget(e.target.value)} style={inputStyle}>
+              <option value="all">Semua agent</option>
+              <option value="musashi">musashi</option>
+              <option value="kelya">kelya</option>
+              <option value="rella">rella</option>
+            </select>
+          </div>
+          <div>
+            <div style={labelStyle}>Jenis</div>
+            <select value={msgType} onChange={e => setMsgType(e.target.value)} style={inputStyle}>
+              <option value="chat">Chat</option>
+              <option value="task_request">Task request</option>
+            </select>
+          </div>
+        </div>
+        <div style={labelStyle}>Pesan</div>
+        <textarea
+          value={msgText}
+          onChange={e => setMsgText(e.target.value)}
+          placeholder="Tulis perintah untuk agent..."
+          rows={3}
+          style={{ ...inputStyle, width: '100%', boxSizing: 'border-box', resize: 'vertical' }}
+        />
+        <button
+          onClick={sendCommand}
+          disabled={sending || !msgText.trim()}
+          style={{
+            marginTop: 12, padding: '10px 24px', fontSize: 15, fontWeight: 'bold',
+            background: '#00d4aa', border: 'none', borderRadius: 8, cursor: 'pointer',
+            color: '#0a0e14', opacity: sending || !msgText.trim() ? 0.5 : 1,
+          }}
+        >
+          {sending ? 'Mengirim...' : 'Kirim'}
+        </button>
+        {sendResult && (
+          <p style={{ marginTop: 12, fontSize: 14, color: sendResult.startsWith('✅') ? '#00d4aa' : '#ffb020' }}>
+            {sendResult}
+          </p>
+        )}
+      </div>
 
       <footer style={{ marginTop: 40, paddingTop: 16, borderTop: '1px solid #1e2a3a', color: '#555', fontSize: 13 }}>
         AgentBus Relay Dashboard • data via API relay (server-side proxy)
